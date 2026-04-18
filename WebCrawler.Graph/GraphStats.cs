@@ -1,4 +1,5 @@
-﻿using WebCrawler.Domain;
+﻿using System.Runtime.InteropServices;
+using WebCrawler.Domain;
 using WebCrawler.Graph;
 
 namespace WebCrawler.Graph
@@ -31,6 +32,35 @@ namespace WebCrawler.Graph
 
             PowerLawFitter.FitOLS(outDegrees, "plots/outOLS.png");
             PowerLawFitter.FitMLE(outDegrees, "plots/outMLE.png");
+
+            PrintBFSStats(graph);
+        }
+
+        public static void PrintBFSStats(CrawlGraph graph)
+        {
+            var (avgDist, diameter, ecc, radius) = BFSExplorer.ExploreBFS(graph);
+
+            Console.WriteLine("\n======== BFS STATS ========");
+
+            double globalAvg = avgDist.Where(x => x >= 0).Average();
+
+            Console.WriteLine($"Average distance: {globalAvg:F4}");
+            Console.WriteLine($"Diameter: {diameter}");
+            Console.WriteLine($"Radius: {radius}");
+
+            Console.WriteLine($"\nAverage distance per node:");
+            for (int i = 0; i < Math.Min(10, avgDist.Length); i++)
+            {
+                Console.WriteLine($"  {i}: {avgDist[i]:F2}");
+            }
+
+            Console.WriteLine($"\nEccentricity per node:");
+            for (int i = 0; i < Math.Min(10, ecc.Length); i++)
+            {
+                Console.WriteLine($"  {i}: {ecc[i]}");
+            }
+
+            PrintHistogram("Eccentricity", ecc);
         }
 
         public static void PrintComponentStats(string label, Dictionary<int, int> components)
