@@ -13,7 +13,7 @@ namespace WebCrawler.Graph
             var inDegrees = graph.InDegrees;
 
             double avgOutDegree = (double)E / V;
-            double avgInDegree = (double)E / V; // zawsze równe avgOutDegree dla grafów skierowanych
+            double avgInDegree = (double)E / V; // always equals avgOutDegree for directed graphs
             double density = (double)E / ((double)V * (V - 1));
 
             Console.WriteLine("\n======== GRAPH STATS ========");
@@ -25,12 +25,16 @@ namespace WebCrawler.Graph
 
             PrintHistogram("Out-degree", outDegrees);
             PrintHistogram("In-degree", inDegrees);
+
+            PowerLawFitter.FitOLS(inDegrees, "plots/inOSL.png");
+            PowerLawFitter.FitMLE(inDegrees, "plots/inMLE.png");
+
+            PowerLawFitter.FitOLS(outDegrees, "plots/outOLS.png");
+            PowerLawFitter.FitMLE(outDegrees, "plots/outMLE.png");
         }
 
         public static void PrintComponentStats(string label, Dictionary<int, int> components)
         {
-            // components to słownik wierzchołek → id składowej
-            // grupujemy po id składowej i liczymy rozmiary
             var sizes = components
                 .GroupBy(kv => kv.Value)
                 .Select(g => g.Count())
@@ -40,10 +44,10 @@ namespace WebCrawler.Graph
             int largest = sizes.Max();
 
             Console.WriteLine($"\n======== {label} ========");
-            Console.WriteLine($"Liczba składowych: {count}");
-            Console.WriteLine($"Największa: {largest} wierzchołków");
+            Console.WriteLine($"Number of components: {count}");
+            Console.WriteLine($"The largest: {largest} vertices");
 
-            PrintHistogram($"{label} rozkład rozmiarów", sizes);
+            PrintHistogram($"{label} size distribution", sizes);
         }
 
         private static void PrintHistogram(string label, IReadOnlyList<int> degrees)
