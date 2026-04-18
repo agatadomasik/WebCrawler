@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="WebCrawler.Console/WebCrawler.Console.csproj" />
+  <Project Path="WebCrawler.Crawler/WebCrawler.Crawler.csproj" Id="d16a970b-0090-48b8-bb72-79e2a7c9ab49" />
+  <Project Path="WebCrawler.Domain/WebCrawler.Domain.csproj" />
+  <Project Path="WebCrawler.Graph/WebCrawler.Graph.csproj" Id="8d9489fa-e6e1-4573-a415-86324e1ad9f5" />
+  <Project Path="WebCrawler.Robots/WebCrawler.Robots.csproj" />
+</Solution>

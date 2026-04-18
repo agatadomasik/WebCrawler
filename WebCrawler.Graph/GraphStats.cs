@@ -1,0 +1,61 @@
+﻿using WebCrawler.Domain;
+using WebCrawler.Graph;
+
+namespace WebCrawler.Graph
+{
+    public static class GraphStats
+    {
+        public static void Print(CrawlGraph graph)
+        {
+            int V = graph.V;
+            int E = graph.E;
+            var outDegrees = graph.OutDegrees;
+            var inDegrees = graph.InDegrees;
+
+            double avgOutDegree = (double)E / V;
+            double avgInDegree = (double)E / V; // zawsze równe avgOutDegree dla grafów skierowanych
+            double density = (double)E / ((double)V * (V - 1));
+
+            Console.WriteLine("\n======== GRAPH STATS ========");
+            Console.WriteLine($"|V| = {V}");
+            Console.WriteLine($"|E| = {E}");
+            Console.WriteLine($"Avg out-degree: {avgOutDegree:F2}");
+            Console.WriteLine($"Avg in-degree:  {avgInDegree:F2}");
+            Console.WriteLine($"Density:        {density:F6}");
+
+            PrintHistogram("Out-degree", outDegrees);
+            PrintHistogram("In-degree", inDegrees);
+        }
+
+        public static void PrintComponentStats(string label, Dictionary<int, int> components)
+        {
+            // components to słownik wierzchołek → id składowej
+            // grupujemy po id składowej i liczymy rozmiary
+            var sizes = components
+                .GroupBy(kv => kv.Value)
+                .Select(g => g.Count())
+                .ToList();
+
+            int count = sizes.Count;
+            int largest = sizes.Max();
+
+            Console.WriteLine($"\n======== {label} ========");
+            Console.WriteLine($"Liczba składowych: {count}");
+            Console.WriteLine($"Największa: {largest} wierzchołków");
+
+            PrintHistogram($"{label} rozkład rozmiarów", sizes);
+        }
+
+        private static void PrintHistogram(string label, IReadOnlyList<int> degrees)
+        {
+            var groups = degrees
+                .GroupBy(d => d)
+                .OrderBy(g => g.Key)
+                .ToList();
+
+            Console.WriteLine($"\n{label} histogram (degree : count):");
+            foreach (var g in groups)
+                Console.WriteLine($"  {g.Key,4} : {g.Count(),5}  {new string('█', Math.Min(g.Count() / 2, 40))}");
+        }
+    }
+}
