@@ -25,8 +25,8 @@ namespace WebCrawler.Graph
             Console.WriteLine($"Avg in-degree:  {avgInDegree:F2}");
             Console.WriteLine($"Density:        {density:F6}");
 
-            PrintHistogram("Out-degree", outDegrees);
-            PrintHistogram("In-degree", inDegrees);
+            PrintHistogram("Out-degree", outDegrees, "plots/out-degree.png");
+            PrintHistogram("In-degree", inDegrees, "plots/in-degree.png");
 
             PowerLawFitter.FitOLS(inDegrees, "plots/inOSL.png");
             PowerLawFitter.FitMLE(inDegrees, "plots/inMLE.png");
@@ -59,7 +59,7 @@ namespace WebCrawler.Graph
                 Console.WriteLine($"  {i}: {ecc[i]}");
             }
 
-            PrintHistogram("Eccentricity", ecc);
+            PrintHistogram("Eccentricity", ecc, "plots/Eccentricity.png");
         }
 
         public static void PrintComponentStats(string label, Dictionary<int, int> components)
@@ -76,19 +76,54 @@ namespace WebCrawler.Graph
             Console.WriteLine($"Number of components: {count}");
             Console.WriteLine($"The largest: {largest} vertices");
 
-            PrintHistogram($"{label} size distribution", sizes);
+            PrintHistogram($"{label} size distribution", sizes, $"plots/{label}.png");
         }
 
-        private static void PrintHistogram(string label, IReadOnlyList<int> degrees)
+        private static void PrintHistogram(string label, IReadOnlyList<int> degrees, string filename)
         {
             var groups = degrees
                 .GroupBy(d => d)
                 .OrderBy(g => g.Key)
                 .ToList();
 
-            Console.WriteLine($"\n{label} histogram (degree : count):");
-            foreach (var g in groups)
-                Console.WriteLine($"  {g.Key,4} : {g.Count(),5}  {new string('█', Math.Min(g.Count() / 2, 40))}");
+            double[] positions = groups.Select(g => (double)g.Key).ToArray();
+            double[] counts = groups.Select(g => (double)g.Count()).ToArray();
+            string[] labels = groups.Select(g => g.Key.ToString()).ToArray();
+
+            // pokaż etykietę tylko gdy odstęp od poprzedniego i następnego słupka > minGap
+            double minGap = (positions.Last() - positions.First()) / 40.0;
+
+            var visiblePos = new List<double>();
+            var visibleLabels = new List<string>();
+            double lastVisible = positions[0] - minGap - 1;
+
+            for (int i = 0; i < positions.Length; i++)
+            {
+                double prevDist = positions[i] - lastVisible;
+                double nextDist = i < positions.Length - 1 ? positions[i + 1] - positions[i] : double.MaxValue;
+
+                if (prevDist >= minGap || nextDist >= minGap)
+                {
+                    visiblePos.Add(positions[i]);
+                    visibleLabels.Add(labels[i]);
+                    lastVisible = positions[i];
+                }
+            }
+
+            var plt = new Plot();
+            var bars = plt.Add.Bars(positions, counts);
+            bars.Color = Colors.CornflowerBlue;
+
+            plt.Axes.Bottom.SetTicks(visiblePos.ToArray(), visibleLabels.ToArray());
+            plt.Axes.Bottom.TickLabelStyle.Rotation = 90;
+            plt.Axes.Bottom.TickLabelStyle.Alignment = Alignment.MiddleLeft;
+            plt.Axes.Bottom.Label.Text = "Degree";
+            plt.Axes.Left.Label.Text = "Count";
+            plt.Title(label);
+
+            Directory.CreateDirectory("plots");
+            plt.SavePng(filename, 900, 500);
+            Console.WriteLine($"Saved: {filename}");
         }
 
         public static void PrintClusteringStats(CrawlGraph graph)
