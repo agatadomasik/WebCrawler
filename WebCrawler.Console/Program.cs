@@ -47,6 +47,11 @@ public class Program
 
         Console.WriteLine($"DAG nodes: {dag.V}");
         Console.WriteLine($"DAG edges: {dag.Adjacency.Sum(x => x.Value.Count)}");
+
+
+        GraphStats.PrintBFSStats(graph);
+        GraphStats.PrintClusteringStats(graph);
+        //GraphStats.PrintPageRankStats(graph);
     }
 
     private static async Task RunPerformanceTests(string targetUrl)
