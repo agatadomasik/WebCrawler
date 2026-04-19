@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using WebCrawler.Domain;
 using WebCrawler.Graph;
+using static WebCrawler.Graph.RobustnessAnalyzer;
 
 namespace WebCrawler.Graph
 {
@@ -33,6 +34,50 @@ namespace WebCrawler.Graph
 
             PowerLawFitter.FitOLS(outDegrees, "plots/outOLS.png");
             PowerLawFitter.FitMLE(outDegrees, "plots/outMLE.png");
+        }
+
+        public static void PlotRobustnessStats(List<RobustnessAnalysisResult> results, int totalNodes, string title)
+        {
+            Directory.CreateDirectory("plots");
+
+            double[] fractions = results.Select(r => r.Fraction).ToArray();
+            double[] wccFractions = results.Select(r => (double)r.LargestWCC / totalNodes).ToArray();
+            double[] sccFractions = results.Select(r => (double)r.LargestSCC / totalNodes).ToArray();
+
+            var plt = new Plot();
+
+            var wccLine = plt.Add.Scatter(fractions, wccFractions);
+            wccLine.LegendText = "Largest WCC";
+            wccLine.Color = Colors.CornflowerBlue;
+            wccLine.MarkerShape = MarkerShape.FilledCircle;
+            wccLine.MarkerSize = 7;
+            wccLine.LineWidth = 2;
+
+            var sccLine = plt.Add.Scatter(fractions, sccFractions);
+            sccLine.LegendText = "Largest SCC";
+            sccLine.Color = Colors.Coral;
+            sccLine.MarkerShape = MarkerShape.FilledSquare;
+            sccLine.MarkerSize = 7;
+            sccLine.LineWidth = 2;
+
+            plt.Axes.Bottom.Label.Text = "Fraction of nodes removed";
+            plt.Axes.Left.Label.Text = "Relative size of largest component";
+            plt.ShowLegend();
+
+            plt.SavePng($"plots/robustness_wcc_scc_{title}.png", 900, 500);
+            Console.WriteLine($"Saved: plots/robustness_wcc_scc_{title}.png");
+        }
+
+        public static void PrintRubustnessStats(List<RobustnessAnalysisResult> results)
+        {
+            foreach (var res in results)
+            {
+                Console.WriteLine($"Fraction: {res.Fraction}");
+                Console.WriteLine($"Largest WCC: {res.LargestWCC}");
+                Console.WriteLine($"Largest SCC: {res.LargestSCC}");
+                Console.WriteLine($"Average distance: {res.AvgDist}");
+                Console.WriteLine($"Diameter: {res.Diameter}");
+            }
         }
 
         public static void PrintBFSStats(CrawlGraph graph)
@@ -90,7 +135,6 @@ namespace WebCrawler.Graph
             double[] counts = groups.Select(g => (double)g.Count()).ToArray();
             string[] labels = groups.Select(g => g.Key.ToString()).ToArray();
 
-            // pokaż etykietę tylko gdy odstęp od poprzedniego i następnego słupka > minGap
             double minGap = (positions.Last() - positions.First()) / 40.0;
 
             var visiblePos = new List<double>();

@@ -15,11 +15,9 @@ namespace WebCrawler.Graph
 
     public class BowTieAnalyzer
     {
-        private readonly SCCFinder _sccFinder = new SCCFinder();
-
         public BowTieResult Analyze(CrawlGraph graph)
         {
-            var comp = _sccFinder.FindKosaraju(graph);
+            var comp = SCCFinder.FindKosaraju(graph);
 
             var counts = new Dictionary<int, int>();
             foreach (var c in comp.Values)

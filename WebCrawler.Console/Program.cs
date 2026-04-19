@@ -3,6 +3,8 @@ using WebCrawler.Crawler;
 using WebCrawler.Domain;
 using WebCrawler.Graph;
 using WebCrawler.Robots;
+using static SkiaSharp.HarfBuzz.SKShaper;
+using static WebCrawler.Graph.RobustnessAnalyzer;
 
 public class Program
 {
@@ -11,7 +13,6 @@ public class Program
         const string targetUrl = "https://warwick.ac.uk";
 
         //await RunPerformanceTests(targetUrl);
-
 
         Console.WriteLine("\n\nCrawling for graph construction...");
         var graphHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
@@ -27,10 +28,8 @@ public class Program
 
         GraphStats.Print(graph);
 
-        var sccFinder = new SCCFinder();
-        var scc = sccFinder.FindKosaraju(graph);
-        var wccFinder = new WCCFinder();
-        var wcc = wccFinder.FindWCC(graph);
+        var scc = SCCFinder.FindKosaraju(graph);
+        var wcc = WCCFinder.FindWCC(graph);
         GraphStats.PrintComponentStats("SCC", scc);
         GraphStats.PrintComponentStats("WCC", wcc);
 
@@ -49,9 +48,21 @@ public class Program
         Console.WriteLine($"DAG edges: {dag.Adjacency.Sum(x => x.Value.Count)}");
 
 
-        GraphStats.PrintBFSStats(graph);
-        GraphStats.PrintClusteringStats(graph);
+        //GraphStats.PrintBFSStats(graph);
+        //GraphStats.PrintClusteringStats(graph);
         //GraphStats.PrintPageRankStats(graph);
+
+        var randomRemovalResults = RobustnessAnalyzer.SimulateRemoval(graph, false);
+        var attackRemovalResults = RobustnessAnalyzer.SimulateRemoval(graph, true);
+
+        Console.WriteLine("\n======== Random Removal Results ========");
+        GraphStats.PrintRubustnessStats(randomRemovalResults);
+
+        Console.WriteLine("\n======== Attack Results ========");
+        GraphStats.PrintRubustnessStats(attackRemovalResults);
+
+        GraphStats.PlotRobustnessStats(randomRemovalResults, graph.V, "random");
+        GraphStats.PlotRobustnessStats(attackRemovalResults, graph.V, "attack");
     }
 
     private static async Task RunPerformanceTests(string targetUrl)

@@ -4,8 +4,9 @@ namespace WebCrawler.Graph
 {
     public class BFSExplorer
     {
-        public static (double[] avgDist, int diameter, int[] ecc, int radius) ExploreBFS(CrawlGraph graph)
+        public static (double[] avgDist, int diameter, int[] ecc, int radius) ExploreBFS(CrawlGraph graph, HashSet<int> active = null!)
         {
+            active ??= new HashSet<int>(Enumerable.Range(0, graph.V));
             int n = graph.V;
 
             double[] avgDist = new double[n];
@@ -16,7 +17,8 @@ namespace WebCrawler.Graph
 
             for (int s = 0; s < n; s++)
             {
-                var (dist, _) = BFS(graph, s);
+                if (!active.Contains(s)) continue;
+                var (dist, _) = BFS(graph, s, active);
 
                 long sum = 0;
                 int count = 0;
@@ -55,7 +57,7 @@ namespace WebCrawler.Graph
 
             return (avgDist, diameter, ecc, radius);
         }
-        public static (int[] dist, int[] parent) BFS(CrawlGraph graph, int source)
+        public static (int[] dist, int[] parent) BFS(CrawlGraph graph, int source, HashSet<int> active)
         {
             var dist = new int[graph.V];
             var parent = new int[graph.V];
@@ -75,7 +77,7 @@ namespace WebCrawler.Graph
                 int u = queue.Dequeue();
                 foreach (var v in graph.Adjacency[u])
                 {
-                    if (dist[v] == -1) {        // v not visited?
+                    if (active.Contains(v) && dist[v] == -1) {        // v not visited?
                         dist[v] = dist[u] + 1;
                         parent[v] = u;
                         queue.Enqueue(v);
