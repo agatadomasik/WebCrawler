@@ -1,10 +1,10 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using WebCrawler.Crawler;
 using WebCrawler.Domain;
 using WebCrawler.Graph;
+using WebCrawler.Graph.Building;
+using WebCrawler.Graph.Charts;
 using WebCrawler.Robots;
-using static SkiaSharp.HarfBuzz.SKShaper;
-using static WebCrawler.Graph.RobustnessAnalyzer;
 
 public class Program
 {
@@ -12,7 +12,7 @@ public class Program
     {
         const string targetUrl = "https://warwick.ac.uk";
 
-        //await RunPerformanceTests(targetUrl);
+        await RunPerformanceTests(targetUrl);
 
         Console.WriteLine("\n\nCrawling for graph construction...");
         var graphHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
@@ -24,45 +24,27 @@ public class Program
 
         var graphResults = await graphEngine.CrawlAsync(targetUrl);
 
+        //await CrawlResultSerializer.SaveAsync(graphResults, "output/crawl_results.json");
+
+        //var graphResults = await CrawlResultSerializer.LoadAsync("output/crawl_results.json");
+
         var graph = GraphBuilder.Build(graphResults);
+        var analysis = new GraphAnalysisService(graph);
 
-        GraphStats.Print(graph);
+        analysis.RunBasicStatistics();
 
-        var scc = SCCFinder.FindKosaraju(graph);
-        var wcc = WCCFinder.FindWCC(graph);
-        GraphStats.PrintComponentStats("SCC", scc);
-        GraphStats.PrintComponentStats("WCC", wcc);
+        var scc = analysis.RunSccAnalysis();
+        analysis.RunWccAnalysis();
 
-        var analyzer = new BowTieAnalyzer();
-        var result = analyzer.Analyze(graph);
+        analysis.RunBowTieAnalysis();
+        analysis.BuildCondensation(scc);
 
-        Console.WriteLine($"CORE: {result.CORE.Count}");
-        Console.WriteLine($"IN: {result.IN.Count}");
-        Console.WriteLine($"OUT: {result.OUT.Count}");
-        Console.WriteLine($"TENDRILS: {result.TENDRILS.Count}");
+        analysis.RunBfsAnalysis();
+        analysis.RunClusteringAnalysis();
+        analysis.RunPageRankAnalysis();
 
-        var builder = new CondensationBuilder();
-        var dag = builder.Build(graph, scc);
-
-        Console.WriteLine($"DAG nodes: {dag.V}");
-        Console.WriteLine($"DAG edges: {dag.Adjacency.Sum(x => x.Value.Count)}");
-
-
-        //GraphStats.PrintBFSStats(graph);
-        //GraphStats.PrintClusteringStats(graph);
-        //GraphStats.PrintPageRankStats(graph);
-
-        var randomRemovalResults = RobustnessAnalyzer.SimulateRemoval(graph, false);
-        var attackRemovalResults = RobustnessAnalyzer.SimulateRemoval(graph, true);
-
-        Console.WriteLine("\n======== Random Removal Results ========");
-        GraphStats.PrintRubustnessStats(randomRemovalResults);
-
-        Console.WriteLine("\n======== Attack Results ========");
-        GraphStats.PrintRubustnessStats(attackRemovalResults);
-
-        GraphStats.PlotRobustnessStats(randomRemovalResults, graph.V, "random");
-        GraphStats.PlotRobustnessStats(attackRemovalResults, graph.V, "attack");
+        analysis.RunConnectivityAnalysis();
+        analysis.RunRobustnessAnalysis();
     }
 
     private static async Task RunPerformanceTests(string targetUrl)
@@ -88,7 +70,7 @@ public class Program
             {
                 ThreadCount = threadCount,
                 MaxPages = 300, // for test purposes
-                PolitenessDelay = TimeSpan.FromMilliseconds(500),
+                PolitenessDelay = TimeSpan.FromMilliseconds(50), // for test purposes
             };
 
             var engine = new CrawlerEngine(options, robotsService, httpClient);
@@ -121,5 +103,7 @@ public class Program
             double speedup = throughput / baseline;
             Console.WriteLine($"{threads,-10} {pages,-8} {seconds,-10:F1} {throughput,-15:F2} {speedup,-10:F2}");
         }
+
+        PerformanceChart.Render(results);
     }
 }

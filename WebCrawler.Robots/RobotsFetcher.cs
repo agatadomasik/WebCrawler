@@ -7,7 +7,7 @@
         {
             _client = client;
         }
-        public async Task<string> FetchRobotsAsync(String url)
+        public async Task<string?> FetchRobotsAsync(string url)
         {
             try
             {
@@ -15,8 +15,13 @@
             }
             catch (HttpRequestException ex)
             {
-                // TODO: zaloguj ex
-                return null!;
+                Console.WriteLine($"  robots.txt fetch failed for {url}: {ex.Message}");
+                return null;
+            }
+            catch (TaskCanceledException)
+            {
+                Console.WriteLine($"  robots.txt fetch timed out for {url}");
+                return null;
             }
         }
     }

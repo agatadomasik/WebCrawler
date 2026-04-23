@@ -11,7 +11,7 @@ namespace WebCrawler.Crawler
 
             var links = new List<string>();
 
-            // XPath: znajdź wszystkie tagi <a> które mają atrybut href
+            // XPath: find every <a> tag that has an href attribute
             var nodes = doc.DocumentNode.SelectNodes("//a[@href]");
             if (nodes == null) return links;
 
@@ -20,7 +20,7 @@ namespace WebCrawler.Crawler
                 var href = node.GetAttributeValue("href", string.Empty);
                 if (string.IsNullOrWhiteSpace(href)) continue;
 
-                // Normalizujemy — zamieniamy na pełny, absolutny URL
+                // Normalize — convert to a full absolute URL
                 var normalized = UrlNormalizer.Normalize(href, baseUrl);
                 if (normalized != null)
                     links.Add(normalized);

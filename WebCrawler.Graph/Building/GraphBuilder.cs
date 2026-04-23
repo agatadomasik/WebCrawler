@@ -1,12 +1,12 @@
 ﻿using WebCrawler.Domain;
 
-namespace WebCrawler.Graph
+namespace WebCrawler.Graph.Building
 {
     public static class GraphBuilder
     {
         public static CrawlGraph Build(List<CrawlResult> results)
         {
-            // krok 1 — przypisz każdemu URL indeks
+            // step 1 — assign an index to every URL
             var urlToIndex = new Dictionary<string, int>();
             var indexToUrl = new List<string>();
 
@@ -20,7 +20,7 @@ namespace WebCrawler.Graph
 
             int n = indexToUrl.Count;
 
-            // krok 2 — zainicjalizuj listy sąsiedztwa
+            // step 2 — initialise adjacency lists
             var adjacency = Enumerable.Range(0, n)
                 .Select(_ => new List<int>())
                 .ToList();
@@ -29,14 +29,14 @@ namespace WebCrawler.Graph
                 .Select(_ => new List<int>())
                 .ToList();
 
-            // krok 3 — dodaj krawędzie
+            // step 3 — add edges
             foreach (var result in results)
             {
                 int from = urlToIndex[result.Url];
 
-                foreach (var link in result.OutLinks)
+                foreach (var link in result.OutLinks.Distinct())
                 {
-                    // ignorujemy linki do stron których nie odwiedziliśmy
+                    // ignore links to pages we never visited
                     if (!urlToIndex.TryGetValue(link, out int to))
                         continue;
 

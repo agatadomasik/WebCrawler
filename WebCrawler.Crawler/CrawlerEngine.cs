@@ -11,11 +11,16 @@ namespace WebCrawler.Crawler
         private readonly RobotsService _robotsService;
         private readonly HttpClient _httpClient;
 
-        // Wyniki crawlowania — thread-safe kolekcja
+        // Crawl results — thread-safe collection
         private readonly ConcurrentBag<CrawlResult> _results = new();
 
-        // Cache robots.txt per domena — żeby nie pobierać za każdym razem
+        // Per-domain robots.txt cache — avoid refetching on every request
         private RobotsFile? _robots;
+
+        // Host-wide politeness gate: ensures at most one request per PolitenessDelay
+        // to the target host regardless of how many worker threads are running.
+        private readonly SemaphoreSlim _hostLock = new(1, 1);
+        private DateTime _lastHitUtc = DateTime.MinValue;
 
         public CrawlerEngine(CrawlerOptions options, RobotsService robotsService, HttpClient httpClient)
         {
@@ -26,7 +31,7 @@ namespace WebCrawler.Crawler
 
         public async Task<List<CrawlResult>> CrawlAsync(string seedUrl)
         {
-            // Normalizujemy seed URL
+            // Normalize the seed URL
             var normalizedSeed = UrlNormalizer.Normalize(seedUrl, seedUrl)!;
             var seedDomain = UrlNormalizer.GetDomain(normalizedSeed);
             _robots ??= await _robotsService.GetRobotsFileAsync($"https://{seedDomain}");
@@ -39,7 +44,7 @@ namespace WebCrawler.Crawler
             Console.WriteLine($"Crawling {seedUrl} with {_options.ThreadCount} threads...");
 
 
-            // N workerów startuje jednocześnie i każdy sam pobiera URL-e z kolejki
+            // N workers start at the same time and each pulls URLs from the queue
             var workers = Enumerable
                 .Range(0, _options.ThreadCount)
                 .Select(_ => WorkerAsync(frontier, seedDomain));
@@ -74,7 +79,6 @@ namespace WebCrawler.Crawler
 
                 emptyRetries = 0;
 
-                // TODO add vertex
                 await CrawlSinglePageAsync(url, frontier, seedDomain);
             }
         }
@@ -86,39 +90,35 @@ namespace WebCrawler.Crawler
         {
             try
             {
-                // Sprawdzamy robots.txt (z cache)
+                // Check robots.txt (from cache)
                 if (_robots != null && !_robots.IsAllowed(url)) return;
 
-                // Czekamy zgodnie z polityką grzeczności
-                await Task.Delay(_options.PolitenessDelay);
-
-                // Pobieramy stronę
+                // Fetch the page (politeness gate enforces host-wide rate limiting)
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.Add("User-Agent", _options.UserAgent);
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await SendPolitelyAsync(request);
                 if (!response.IsSuccessStatusCode) return;
 
-                // Sprawdzamy czy to HTML (nie PDF, obrazek itp.)
+                // Verify that the response is HTML (not PDF, image, etc.)
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
                 if (!contentType.Contains("text/html")) return;
 
                 var html = await response.Content.ReadAsStringAsync();
 
-                // Wyciągamy linki
+                // Extract links
                 var links = LinkExtractor.ExtractLinks(html, url);
 
-                // Filtrujemy tylko linki do tej samej domeny i dodajemy do frontieru
+                // Keep only same-domain links and enqueue them in the frontier
                 foreach (var link in links)
                 {
                     if (UrlNormalizer.GetDomain(link) == allowedDomain)
                     {
                         frontier.Enqueue(link);
-                        // TODO add out edges
                     }
                 }
 
-                // Zapisujemy wynik
+                // Record the result
                 var result = new CrawlResult(url);
                 result.OutLinks.AddRange(links.Where(l => UrlNormalizer.GetDomain(l) == allowedDomain));
                 _results.Add(result);
@@ -130,6 +130,33 @@ namespace WebCrawler.Crawler
             {
                 Console.WriteLine($"  Error crawling {url}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Sends an HTTP request while honouring a host-wide politeness delay.
+        /// Only one request at a time can enter the gate; the next one is released
+        /// after PolitenessDelay has elapsed since the previous request started,
+        /// so the effective rate stays at 1 / PolitenessDelay regardless of how
+        /// many worker threads compete for the gate.
+        /// </summary>
+        private async Task<HttpResponseMessage> SendPolitelyAsync(HttpRequestMessage request)
+        {
+            await _hostLock.WaitAsync();
+            try
+            {
+                var sinceLast = DateTime.UtcNow - _lastHitUtc;
+                var waitFor = _options.PolitenessDelay - sinceLast;
+                if (waitFor > TimeSpan.Zero)
+                    await Task.Delay(waitFor);
+
+                _lastHitUtc = DateTime.UtcNow;
+            }
+            finally
+            {
+                _hostLock.Release();
+            }
+
+            return await _httpClient.SendAsync(request);
         }
     }
 }
